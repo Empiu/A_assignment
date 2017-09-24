@@ -1,9 +1,12 @@
 import mysql.connector as mys
 from mysql.connector import Error
-from tkinter import *
+import tkinter as tk
+from collections import OrderedDict as odict
+import datetime
 
-
-class dbGrab:  # устанавливает соединение с БД и забирает данные по SQL-запросу
+# устанавливает соединение с БД и забирает данные по SQL-запросу
+class dbGrab:
+    # соединение с базой данных
     def connect(self, h, db, usr, pwd):
         try:
             self.con = mys.connect(host=h, database=db, user=usr, password=pwd)
@@ -12,6 +15,7 @@ class dbGrab:  # устанавливает соединение с БД и за
         except Error as e:
             print(e)
 
+    # формирование SQL запроса и выдача таблицы в виде списка где элемент списка == запись таблицы
     def do_the_thing(self, date_from, date_to):
 
         command = """
@@ -39,64 +43,79 @@ class dbGrab:  # устанавливает соединение с БД и за
 
 dbgrab = dbGrab()
 
-class dataGrab: #графика и цикл запускающий коннект и запрос
+# графика
+class dataGrab(tk.Tk):
 
-    def __init__(self, main):
-        self.ent1 = Entry(main, width=15, bd=3)
-        self.ent2 = Entry(main, width=15, bd=3)
-        self.ent3 = Entry(main, width=15, bd=3)
-        self.ent4 = Entry(main, width=15, bd=3)
-        self.ent5 = Entry(main, width=15, bd=3)
-        self.ent6 = Entry(main, width=15, bd=3)
+    def __init__(self, *args, **kwargs):
+        tk.Tk.__init__(self, *args, **kwargs)
 
-        self.lab1 = Label(main, text='host')
-        self.lab2 = Label(main, text='dbname')
-        self.lab3 = Label(main, text='user')
-        self.lab4 = Label(main, text='password')
-        self.lab5 = Label(main, text='slice from')
-        self.lab6 = Label(main, text='to')
+        # заготовка для деления энтрисов на два ряда
+        self.lst1 = ['Host', 'DbName', 'User', 'Password']
+        self.lst2 = ['Slice from', 'Slice to']
 
-        self. lbox = Listbox(main, height=20, width = 50)
+        # стандартные параметры для полей коннекта к моей бд, что бы не вводить каждый раз при запуске формы
+        self.lst11 = ['localhost', 'credit_scoring', 'root', '101101']
 
-        self.but1 = Button(main, text='Do the thing')
-        self.but1.bind("<Button-1>", self.gui_parse)
+        # элементы формы
+        self.button = tk.Button(self, text='Провести выборку',
+                                command=lambda: self.gui_parse()).grid(row=1, column=2, sticky='nswe')
 
-        self.ent1.grid(row=1, column=0, sticky=NE)
-        self.ent2.grid(row=1, column=1, sticky=NE)
-        self.ent3.grid(row=1, column=2, sticky=N)
-        self.ent4.grid(row=1, column=3, sticky=N)
-        self.ent5.grid(row=3, column=1, sticky=NE)
-        self.ent6.grid(row=3, column=2, sticky=NE)
+        self.label = tk.LabelFrame(self, text='Дата подачи, Дата закрытия, Клиент, Код отказа')
+        self.label.grid(row=3, columnspan=4, column=0, sticky='nsw')
+        self.lbox = tk.Listbox(self.label, height=20, width=50)
+        self.lbox.grid(row=4, columnspan=4, column=0)
 
+        # расставляем ряды энтрисов
+        self.entries = self.entries_compile(self.lst1)
+        self.entries2 = self.entries_compile(self.lst2)
+        self.grid_entries(0, self.entries.values())
+        self.grid_entries(1, self.entries2.values())
 
-        self.lab1.grid(row=0, column=0, sticky=NE)
-        self.lab2.grid(row=0, column=1, sticky=N)
-        self.lab3.grid(row=0, column=2, sticky=N)
-        self.lab4.grid(row=0, column=3, sticky=N)
-        self.lab5.grid(row=2, column=1, sticky=NE)
-        self.lab6.grid(row=2, column=2, sticky=N)
+        # заполняем энтрисы дефолтными параметрами
+        for val in enumerate(self.entries.values()):
+            val[1].insert('end', self.lst11[val[0]])
 
-        self.lbox.grid(row=4, column=0, sticky=S)
-        self.but1.grid(row=4, column=1, sticky=SW)
+    # собирает пару лэйбл_фрэйм: энтри и добавляет в упорядоченный словарь что бы можно было обращаться к ним за .гет()
+    def entries_compile(self, lst):
+        entries = odict()
+        for i in lst:
+            label_frame = tk.LabelFrame(self, text=i)
+            entry = tk.Entry(label_frame)
+            entry.pack(expand=True, fill='both')
+            entries.update({i: entry})
+        return entries
 
-    def gui_parse(self, event):
-        self.lbox.delete(0, END)
-        entry1_host = self.ent1.get()
-        entry2_dbname = self.ent2.get()
-        entry3_user = self.ent3.get()
-        entry4_password = self.ent4.get()
-        _from = self.ent5.get()
-        _to = self.ent6.get()
+    # присваевает номера сетки энтрисам
+    @staticmethod
+    def grid_entries(row, _set):
+        for column, entry in enumerate(_set):
+            #print(entry.master['text']) это для тестов
+            entry.master.grid(row=row, column=column, sticky='nswe')
+
+    def gui_parse(self):
+
+        self.lbox.delete(0, 'end')
+        entry1_host = self.entries['Host'].get()
+        entry2_dbname = self.entries['DbName'].get()
+        entry3_user = self.entries['User'].get()
+        entry4_password = self.entries['Password'].get()
+        _from = self.entries2['Slice from'].get()
+        _to = self.entries2['Slice to'].get()
+        if _from:
+            _from = datetime.datetime.strptime(_from, "%d.%m.%Y").date().strftime("%Y-%m-%d")
+        if _to:
+            _to = datetime.datetime.strptime(_to, "%d.%m.%Y").date().strftime("%Y-%m-%d")
         if dbgrab.connect(entry1_host, entry2_dbname, entry3_user, entry4_password):
             table = [(i[0].strftime('%d.%m.%Y'),
                 i[1].strftime('%d.%m.%Y'), i[2], i[3]) for i in dbgrab.do_the_thing(_from, _to)]
-            for i in table: self.lbox.insert(END, i)
+            for i in table: self.lbox.insert('end', i)
         else:
             try:
                 dbgrab.con.close()
             except AttributeError:
                 pass
-root = Tk()
-root.title('Задание 3')
-gui = dataGrab(root)
-root.mainloop()
+
+
+gui = dataGrab()
+gui.title('Задание 3')
+gui.mainloop()
