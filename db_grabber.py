@@ -25,7 +25,7 @@ class dbGrab:
         """
 
         if date_from: command += " AND bank_credit_request_forms.date_opened>= %(date_0)s "
-        if date_to: command += " AND bank_credit_request_forms.date_opened<= %(date_1)s "
+        if date_to: command += " AND bank_credit_request_forms.date_current_status<= %(date_1)s "
         command += "ORDER BY bank_credit_request_forms.nginfo ASC"
         cursor = self.con.cursor()
         if date_from and not date_to:
@@ -92,6 +92,12 @@ class dataGrab(tk.Tk):
             #print(entry.master['text']) это для тестов
             entry.master.grid(row=row, column=column, sticky='nswe')
 
+    # меняет формат даты с дд.мм.гггг на гггг-мм-дд, который принимает mysql
+    @staticmethod
+    def convert_date(date):
+        result = datetime.datetime.strptime(date, "%d.%m.%Y").date().strftime("%Y-%m-%d")
+        return result
+
     def gui_parse(self):
 
         self.lbox.delete(0, 'end')
@@ -101,10 +107,8 @@ class dataGrab(tk.Tk):
         entry4_password = self.entries['Password'].get()
         _from = self.entries2['Slice from'].get()
         _to = self.entries2['Slice to'].get()
-        if _from:
-            _from = datetime.datetime.strptime(_from, "%d.%m.%Y").date().strftime("%Y-%m-%d")
-        if _to:
-            _to = datetime.datetime.strptime(_to, "%d.%m.%Y").date().strftime("%Y-%m-%d")
+        if _from: _from = self.convert_date(_from)
+        if _to: _to = self.convert_date(_to)
         if dbgrab.connect(entry1_host, entry2_dbname, entry3_user, entry4_password):
             table = [(i[0].strftime('%d.%m.%Y'),
                 i[1].strftime('%d.%m.%Y'), i[2], i[3]) for i in dbgrab.do_the_thing(_from, _to)]
